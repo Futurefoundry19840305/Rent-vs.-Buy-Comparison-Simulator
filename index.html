@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>賃貸 vs 持ち家 生涯キャッシュフロー・シミュレーター</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/3.0.1/chartjs-plugin-annotation.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #11111a;
+    --bg3: #1a1a28;
+    --border: #2a2a40;
+    --border2: #3a3a55;
+    --rent-color: #38bdf8;
+    --rent-glow: rgba(56,189,248,0.3);
+    --home-color: #f97316;
+    --home-glow: rgba(249,115,22,0.3);
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --accent: #a78bfa;
+    --green: #4ade80;
+    --red: #f87171;
+    --gold: #fbbf24;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 背景グリッド */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(167,139,250,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(167,139,250,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 16px 64px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ヘッダー */
+  header {
+    text-align: center;
+    padding: 48px 0 40px;
+  }
+
+  .header-badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 14px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+  }
+
+  header h1 {
+    font-size: clamp(22px, 5vw, 40px);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+  }
+
+  .title-rent { color: var(--rent-color); }
+  .title-home { color: var(--home-color); }
+
+  header p {
+    margin-top: 12px;
+    color: var(--text2);
+    font-size: 14px;
+    font-weight: 300;
+  }
+
+  /* セクションラベル */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* 入力グリッド */
+  .input-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* パネル */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: border-color 0.2s;
+  }
+
+  .panel:hover { border-color: var(--border2); }
+
+  .panel-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-base { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+  .dot-rent { background: var(--rent-color); box-shadow: 0 0 8px var(--rent-glow); }
+  .dot-home { background: var(--home-color); box-shadow: 0 0 8px var(--home-glow); }
+
+  /* 入力フィールド */
+  .field {
+    margin-bottom: 16px;
+  }
+
+  .field:last-child { margin-bottom: 0; }
+
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .input-unit {
+    position: absolute;
+    right: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+    pointer-events: none;
+  }
+
+  input[type="number"], input[type="range"] {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    padding: 10px 40px 10px 12px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -moz-appearance: textfield;
+  }
+
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(167,139,250,0.1);
+  }
+
+  /* レンジスライダー */
+  .range-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  input[type="range"] {
+    padding: 0;
+    height: 4px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    border: none;
+    background: var(--border);
+    flex: 1;
+    border-radius: 100px;
+  }
+
+  .range-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    min-width: 48px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ボタン */
+  .calc-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 1px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+    margin-top: 24px;
+    box-shadow: 0 4px 24px rgba(167,139,250,0.3);
+  }
+
+  .calc-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(167,139,250,0.4);
+  }
+
+  .calc-btn:active { transform: translateY(0); }
+
+  .calc-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.15), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .calc-btn:hover::before { opacity: 1; }
+
+  /* 結果エリア */
+  #result-section {
+    display: none;
+    margin-top: 32px;
+    animation: fadeUp 0.5s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* サマリーカード */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .summary-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .summary-card.rent::before { background: var(--rent-color); box-shadow: 0 0 8px var(--rent-glow); }
+  .summary-card.home::before { background: var(--home-color); box-shadow: 0 0 8px var(--home-glow); }
+  .summary-card.diff::before { background: var(--accent); }
+
+  .summary-label {
+    font-size: 11px;
+    color: var(--text3);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+
+  .summary-value {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(18px, 4vw, 24px);
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .summary-value.positive { color: var(--green); }
+  .summary-value.negative { color: var(--red); }
+  .summary-value.rent { color: var(--rent-color); }
+  .summary-value.home { color: var(--home-color); }
+
+  .summary-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 6px;
+  }
+
+  /* グラフ */
+  .chart-panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .chart-title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: clamp(280px, 45vw, 420px);
+  }
+
+  /* テーブル */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--bg3);
+  }
+
+  th {
+    padding: 12px 14px;
+    text-align: right;
+    font-weight: 600;
+    color: var(--text2);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th:first-child { text-align: left; }
+
+  td {
+    padding: 10px 14px;
+    text-align: right;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    border-bottom: 1px solid rgba(42,42,64,0.6);
+    white-space: nowrap;
+  }
+
+  td:first-child {
+    text-align: left;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  tr:hover td { background: rgba(167,139,250,0.03); }
+
+  .td-rent { color: var(--rent-color) !important; }
+  .td-home { color: var(--home-color) !important; }
+  .td-plus { color: var(--green) !important; }
+  .td-minus { color: var(--red) !important; }
+  .td-event { color: var(--gold) !important; font-size: 10px; }
+
+  .highlight-row td {
+    background: rgba(167,139,250,0.06);
+    font-weight: 600;
+  }
+
+  /* 注記バッジ */
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    vertical-align: middle;
+  }
+
+  .badge-payoff {
+    background: rgba(249,115,22,0.15);
+    color: var(--home-color);
+    border: 1px solid rgba(249,115,22,0.3);
+  }
+
+  .badge-short {
+    background: rgba(248,113,113,0.15);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.3);
+  }
+
+  /* フッター */
+  .disclaimer {
+    margin-top: 32px;
+    padding: 16px 20px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 11px;
+    color: var(--text3);
+    line-height: 1.8;
+  }
+
+  /* スクロールアニメーション */
+  .scroll-reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+
+  .scroll-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 640px) {
+    .input-grid { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    header { padding: 32px 0 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="header-badge">Lifetime Cashflow Simulator</div>
+    <h1><span class="title-rent">賃貸</span> vs <span class="title-home">持ち家</span><br>生涯キャッシュフロー比較</h1>
+    <p>年齢ごとの資産残高を30年・50年スパンでシミュレーション</p>
+  </header>
+
+  <!-- ========== 基本情報 ========== -->
+  <div class="section-label">01 — 基本属性</div>
+  <div class="input-grid" style="margin-bottom:16px">
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-base"></div>年齢・期間設定</div>
+      <div class="field">
+        <label>現在の年齢</label>
+        <div class="input-wrap">
+          <input type="number" id="age" value="30" min="18" max="80">
+          <span class="input-unit">歳</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>シミュレーション終了年齢（寿命想定）</label>
+        <div class="input-wrap">
+          <input type="number" id="endAge" value="90" min="40" max="110">
+          <span class="input-unit">歳</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>現在の金融資産</label>
+        <div class="input-wrap">
+          <input type="number" id="assets" value="300" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-base"></div>収入・生活費</div>
+      <div class="field">
+        <label>手取り年収</label>
+        <div class="input-wrap">
+          <input type="number" id="income" value="450" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>生活費（住居費除く）/ 年</label>
+        <div class="input-wrap">
+          <input type="number" id="living" value="240" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>資産運用利回り（年率）</label>
+        <div class="range-field">
+          <input type="range" id="returnRate" min="0" max="8" step="0.1" value="3"
+            oninput="document.getElementById('returnRateVal').textContent=this.value+'%'">
+          <span class="range-val" id="returnRateVal">3.0%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 賃貸 ========== -->
+  <div class="section-label">02 — 賃貸条件</div>
+  <div class="input-grid" style="margin-bottom:16px">
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-rent"></div>月額コスト</div>
+      <div class="field">
+        <label>家賃（月額）</label>
+        <div class="input-wrap">
+          <input type="number" id="rent" value="12" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>共益費（月額）</label>
+        <div class="input-wrap">
+          <input type="number" id="common" value="0.5" min="0" step="0.1">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-rent"></div>更新・引越し</div>
+      <div class="field">
+        <label>更新料（2年ごと・家賃×何ヶ月分）</label>
+        <div class="range-field">
+          <input type="range" id="renewal" min="0" max="3" step="0.5" value="1"
+            oninput="document.getElementById('renewalVal').textContent=this.value+'ヶ月'">
+          <span class="range-val" id="renewalVal">1ヶ月</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>引越し費用（10年ごとに発生）</label>
+        <div class="input-wrap">
+          <input type="number" id="moving" value="30" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 持ち家 ========== -->
+  <div class="section-label">03 — 持ち家条件</div>
+  <div class="input-grid" style="margin-bottom:24px">
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-home"></div>購入・ローン</div>
+      <div class="field">
+        <label>物件価格</label>
+        <div class="input-wrap">
+          <input type="number" id="price" value="4000" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>頭金</label>
+        <div class="input-wrap">
+          <input type="number" id="downpay" value="400" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>ローン金利（年率）</label>
+        <div class="range-field">
+          <input type="range" id="rate" min="0.1" max="5" step="0.05" value="1.5"
+            oninput="document.getElementById('rateVal').textContent=this.value+'%'">
+          <span class="range-val" id="rateVal">1.5%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>ローン期間</label>
+        <div class="range-field">
+          <input type="range" id="loanYears" min="5" max="35" step="1" value="35"
+            oninput="document.getElementById('loanYearsVal').textContent=this.value+'年'">
+          <span class="range-val" id="loanYearsVal">35年</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title"><div class="panel-dot dot-home"></div>維持費・売却</div>
+      <div class="field">
+        <label>固定資産税（年額）</label>
+        <div class="input-wrap">
+          <input type="number" id="propTax" value="12" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>管理・修繕費（年額）</label>
+        <div class="input-wrap">
+          <input type="number" id="repair" value="20" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>売却想定価格（シミュレーション終了時）</label>
+        <div class="input-wrap">
+          <input type="number" id="sellPrice" value="2000" min="0">
+          <span class="input-unit">万円</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>諸経費（物件価格の何%）</label>
+        <div class="range-field">
+          <input type="range" id="misc" min="3" max="10" step="0.5" value="7"
+            oninput="document.getElementById('miscVal').textContent=this.value+'%'">
+          <span class="range-val" id="miscVal">7%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="calc-btn" onclick="calculate()">▶ シミュレーション実行</button>
+
+  <!-- ========== 結果 ========== -->
+  <div id="result-section">
+    <div class="section-label" style="margin-top:40px">04 — シミュレーション結果</div>
+
+    <!-- サマリー -->
+    <div class="summary-grid" id="summary-grid"></div>
+
+    <!-- グラフ -->
+    <div class="chart-panel scroll-reveal">
+      <div class="chart-header">
+        <div class="chart-title">📈 資産残高の推移（年齢別）</div>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--rent-color)"></div> 賃貸派
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:var(--home-color)"></div> 持ち家派
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+
+    <!-- 年間コスト比較グラフ -->
+    <div class="chart-panel scroll-reveal" style="margin-top:16px">
+      <div class="chart-header">
+        <div class="chart-title">💸 年間住居費の推移</div>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="costChart"></canvas>
+      </div>
+    </div>
+
+    <!-- 詳細テーブル -->
+    <div class="scroll-reveal" style="margin-top:16px">
+      <div class="section-label">05 — 詳細データ（5年ごと）</div>
+      <div class="table-wrap">
+        <table id="detailTable"></table>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      ⚠️ このシミュレーターは参考値の提示を目的としており、実際の投資・購入の判断を保証するものではありません。
+      税金（住宅ローン控除・譲渡所得税等）、インフレ、収入変動、金利変動リスクは考慮されていません。
+      実際の意思決定にはファイナンシャルプランナー等の専門家にご相談ください。
+    </div>
+  </div>
+</div>
+
+<script>
+// ====================================================
+// グローバル変数
+// ====================================================
+let mainChartInstance = null;
+let costChartInstance = null;
+
+// ====================================================
+// メイン計算関数
+// ====================================================
+function calculate() {
+  // --- 入力値の読み込み ---
+  const currentAge   = parseFloat(document.getElementById('age').value);
+  const endAge       = parseFloat(document.getElementById('endAge').value);
+  const initAssets   = parseFloat(document.getElementById('assets').value);
+  const income       = parseFloat(document.getElementById('income').value);
+  const living       = parseFloat(document.getElementById('living').value);
+  const returnRate   = parseFloat(document.getElementById('returnRate').value) / 100;
+
+  // 賃貸
+  const rentMonthly  = parseFloat(document.getElementById('rent').value);
+  const commonFee    = parseFloat(document.getElementById('common').value);
+  const renewalMon   = parseFloat(document.getElementById('renewal').value);
+  const movingCost   = parseFloat(document.getElementById('moving').value);
+
+  // 持ち家
+  const price        = parseFloat(document.getElementById('price').value);
+  const downpay      = parseFloat(document.getElementById('downpay').value);
+  const loanRate     = parseFloat(document.getElementById('rate').value) / 100;
+  const loanYears    = parseFloat(document.getElementById('loanYears').value);
+  const propTax      = parseFloat(document.getElementById('propTax').value);
+  const repair       = parseFloat(document.getElementById('repair').value);
+  const sellPrice    = parseFloat(document.getElementById('sellPrice').value);
+  const miscPct      = parseFloat(document.getElementById('misc').value) / 100;
+
+  // --- バリデーション ---
+  if (endAge <= currentAge) {
+    alert('終了年齢は現在の年齢より大きくしてください。');
+    return;
+  }
+
+  const years = endAge - currentAge; // シミュレーション年数
+  const payoffAge = currentAge + loanYears; // ローン完済年齢
+
+  // --- ローン月額計算（元利均等返済） ---
+  const loanAmount = price - downpay; // 借入額
+  const monthlyRate = loanRate / 12;
+  const nMonths = loanYears * 12;
+  // 月額ローン返済額
+  const monthlyLoan = monthlyRate > 0
+    ? loanAmount * monthlyRate * Math.pow(1 + monthlyRate, nMonths)
+      / (Math.pow(1 + monthlyRate, nMonths) - 1)
+    : loanAmount / nMonths;
+  const annualLoan = monthlyLoan * 12; // 年間ローン返済額
+
+  // 諸経費（購入時の初期費用）
+  const miscCost = price * miscPct;
+
+  // 賃貸の年間基本住居費
+  const annualRent = (rentMonthly + commonFee) * 12;
+
+  // ====================================================
+  // 年齢ループでキャッシュフローを計算
+  // ====================================================
+  const ages = [];
+  const rentAssets = [];   // 賃貸派の資産残高
+  const homeAssets = [];   // 持ち家派の資産残高
+  const rentCosts = [];    // 賃貸派の年間住居費
+  const homeCosts = [];    // 持ち家派の年間住居費
+  const events = [];       // 各年のイベント
+
+  let rAssets = initAssets; // 賃貸派の現在資産
+  let hAssets = initAssets; // 持ち家派の現在資産
+
+  for (let y = 0; y <= years; y++) {
+    const age = currentAge + y;
+    ages.push(age);
+
+    const yearEvents = [];
+
+    // ============ 賃貸派の計算 ============
+    let rentHousing = annualRent;
+
+    // 2年ごとの更新料（偶数年 y=0,2,4… ただし初年度は除く）
+    if (y > 0 && y % 2 === 0) {
+      const renewal = rentMonthly * renewalMon;
+      rentHousing += renewal;
+      yearEvents.push(`🔑 賃貸更新料 ${fmtM(renewal)}万円`);
+    }
+
+    // 10年ごとの引越し費用（y=10,20,30…）
+    if (y > 0 && y % 10 === 0) {
+      rentHousing += movingCost;
+      yearEvents.push(`🚚 引越し費用 ${fmtM(movingCost)}万円`);
+    }
+
+    // 年間余剰 = 収入 - 生活費 - 住居費
+    const rentSurplus = income - living - rentHousing;
+
+    // 複利運用：期首の資産に運用益を加え、余剰を加算
+    if (y === 0) {
+      // 0年目（現在）：資産はそのまま
+      rentAssets.push(rAssets);
+    } else {
+      rAssets = rAssets * (1 + returnRate) + rentSurplus;
+      rentAssets.push(rAssets);
+    }
+    rentCosts.push(rentHousing);
+
+    // ============ 持ち家派の計算 ============
+    let homeHousing = 0;
+
+    if (y === 0) {
+      // 購入年：頭金 + 諸経費を一括支払い
+      hAssets -= (downpay + miscCost);
+      homeAssets.push(hAssets);
+      homeCosts.push(downpay + miscCost); // 初期費用を「住居費」として表示
+      yearEvents.push(`🏠 頭金+諸経費 ${fmtM(downpay + miscCost)}万円`);
+      events.push(yearEvents);
+      continue;
+    }
+
+    if (age <= payoffAge) {
+      // ローン返済中：ローン + 固定資産税 + 修繕費
+      homeHousing = annualLoan + propTax + repair;
+    } else {
+      // ローン完済後：固定資産税 + 修繕費のみ
+      homeHousing = propTax + repair;
+      if (age === payoffAge + 1) {
+        yearEvents.push(`🎉 ローン完済！ 年間 ${fmtM(annualLoan)}万円 節約`);
+      }
+    }
+
+    // シミュレーション最終年：売却益を加算
+    if (y === years) {
+      hAssets = hAssets * (1 + returnRate) + (income - living - homeHousing) + sellPrice;
+      yearEvents.push(`💰 売却益 ${fmtM(sellPrice)}万円 加算`);
+    } else {
+      hAssets = hAssets * (1 + returnRate) + (income - living - homeHousing);
+    }
+
+    homeAssets.push(hAssets);
+    homeCosts.push(homeHousing);
+    events.push(yearEvents);
+  }
+
+  // ====================================================
+  // 資産ショート年齢の検出
+  // ====================================================
+  let rentShortAge = null;
+  let homeShortAge = null;
+  let payoffAgeLabel = payoffAge <= endAge ? payoffAge : null;
+
+  for (let i = 0; i < ages.length; i++) {
+    if (rentShortAge === null && rentAssets[i] < 0) rentShortAge = ages[i];
+    if (homeShortAge === null && homeAssets[i] < 0) homeShortAge = ages[i];
+  }
+
+  // ====================================================
+  // サマリーカードの描画
+  // ====================================================
+  const finalRent = rentAssets[rentAssets.length - 1];
+  const finalHome = homeAssets[homeAssets.length - 1];
+  const diff = finalRent - finalHome;
+  const winner = diff > 0 ? '賃貸' : '持ち家';
+  const winColor = diff > 0 ? 'rent' : 'home';
+
+  const summaryGrid = document.getElementById('summary-grid');
+  summaryGrid.innerHTML = `
+    <div class="summary-card rent">
+      <div class="summary-label">賃貸派 最終資産（${endAge}歳）</div>
+      <div class="summary-value rent">${fmtMK(finalRent)}</div>
+      <div class="summary-sub">${rentShortAge ? `⚠️ ${rentShortAge}歳で資産ショート` : '✓ 資産ショートなし'}</div>
+    </div>
+    <div class="summary-card home">
+      <div class="summary-label">持ち家派 最終資産（${endAge}歳）※売却益含む</div>
+      <div class="summary-value home">${fmtMK(finalHome)}</div>
+      <div class="summary-sub">${homeShortAge ? `⚠️ ${homeShortAge}歳で資産ショート` : '✓ 資産ショートなし'}${payoffAgeLabel ? ` | 完済：${payoffAgeLabel}歳` : ''}</div>
+    </div>
+    <div class="summary-card diff">
+      <div class="summary-label">差額（賃貸 − 持ち家）</div>
+      <div class="summary-value ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${fmtMK(diff)}</div>
+      <div class="summary-sub">生涯では <strong style="color:var(--${winColor}-color)">${winner}派</strong> が有利</div>
+    </div>
+    <div class="summary-card diff">
+      <div class="summary-label">ローン月額返済額</div>
+      <div class="summary-value" style="color:var(--gold)">${fmtM(monthlyLoan)}万円/月</div>
+      <div class="summary-sub">総返済額 ${fmtMK(annualLoan * loanYears)} ／ ${payoffAge}歳完済</div>
+    </div>
+  `;
+
+  // ====================================================
+  // メイングラフ（資産推移）の描画
+  // ====================================================
+  const annotations = {};
+
+  // ゼロライン（資産ショート）
+  annotations.zeroLine = {
+    type: 'line',
+    yMin: 0, yMax: 0,
+    borderColor: 'rgba(248,113,113,0.4)',
+    borderWidth: 1,
+    borderDash: [6, 4],
+  };
+
+  // ローン完済ライン
+  if (payoffAgeLabel) {
+    annotations.payoff = {
+      type: 'line',
+      xMin: payoffAge - currentAge,
+      xMax: payoffAge - currentAge,
+      borderColor: 'rgba(249,115,22,0.6)',
+      borderWidth: 1.5,
+      borderDash: [4, 4],
+      label: {
+        display: true,
+        content: `完済 ${payoffAge}歳`,
+        position: 'start',
+        backgroundColor: 'rgba(249,115,22,0.8)',
+        color: '#fff',
+        font: { size: 10 },
+        padding: { x: 6, y: 3 },
+        borderRadius: 4,
+      }
+    };
+  }
+
+  // 資産ショートライン（賃貸）
+  if (rentShortAge) {
+    annotations.rentShort = {
+      type: 'line',
+      xMin: rentShortAge - currentAge,
+      xMax: rentShortAge - currentAge,
+      borderColor: 'rgba(56,189,248,0.6)',
+      borderWidth: 1.5,
+      borderDash: [3, 3],
+      label: {
+        display: true,
+        content: `賃貸ショート ${rentShortAge}歳`,
+        position: 'end',
+        backgroundColor: 'rgba(56,189,248,0.8)',
+        color: '#fff',
+        font: { size: 10 },
+        padding: { x: 6, y: 3 },
+        borderRadius: 4,
+      }
+    };
+  }
+
+  // 資産ショートライン（持ち家）
+  if (homeShortAge) {
+    annotations.homeShort = {
+      type: 'line',
+      xMin: homeShortAge - currentAge,
+      xMax: homeShortAge - currentAge,
+      borderColor: 'rgba(249,115,22,0.6)',
+      borderWidth: 1.5,
+      borderDash: [3, 3],
+      label: {
+        display: true,
+        content: `持ち家ショート ${homeShortAge}歳`,
+        position: 'end',
+        backgroundColor: 'rgba(249,115,22,0.8)',
+        color: '#fff',
+        font: { size: 10 },
+        padding: { x: 6, y: 3 },
+        borderRadius: 4,
+      }
+    };
+  }
+
+  if (mainChartInstance) mainChartInstance.destroy();
+
+  const ctx = document.getElementById('mainChart').getContext('2d');
+
+  // グラデーション
+  const gRent = ctx.createLinearGradient(0, 0, 0, 420);
+  gRent.addColorStop(0, 'rgba(56,189,248,0.25)');
+  gRent.addColorStop(1, 'rgba(56,189,248,0)');
+
+  const gHome = ctx.createLinearGradient(0, 0, 0, 420);
+  gHome.addColorStop(0, 'rgba(249,115,22,0.2)');
+  gHome.addColorStop(1, 'rgba(249,115,22,0)');
+
+  mainChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ages,
+      datasets: [
+        {
+          label: '賃貸派の資産',
+          data: rentAssets,
+          borderColor: '#38bdf8',
+          backgroundColor: gRent,
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.4,
+        },
+        {
+          label: '持ち家派の資産（売却含む）',
+          data: homeAssets,
+          borderColor: '#f97316',
+          backgroundColor: gHome,
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          fill: true,
+          tension: 0.4,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        annotation: { annotations },
+        tooltip: {
+          backgroundColor: 'rgba(17,17,26,0.95)',
+          borderColor: '#2a2a40',
+          borderWidth: 1,
+          titleColor: '#94a3b8',
+          bodyColor: '#e2e8f0',
+          titleFont: { size: 12 },
+          callbacks: {
+            title: (items) => `${items[0].label} 歳`,
+            label: (item) => ` ${item.dataset.label}：${fmtMK(item.raw)}`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(42,42,64,0.5)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 11, family: 'DM Mono' },
+            callback: (v, i) => ages[i] % 5 === 0 ? ages[i] + '歳' : '',
+          }
+        },
+        y: {
+          grid: { color: 'rgba(42,42,64,0.5)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 11, family: 'DM Mono' },
+            callback: (v) => fmtMK(v),
+          }
+        }
+      }
+    }
+  });
+
+  // ====================================================
+  // 年間住居費グラフ
+  // ====================================================
+  if (costChartInstance) costChartInstance.destroy();
+  const ctx2 = document.getElementById('costChart').getContext('2d');
+  costChartInstance = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: ages,
+      datasets: [
+        {
+          label: '賃貸派の住居費',
+          data: rentCosts,
+          borderColor: '#38bdf8',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          stepped: true,
+        },
+        {
+          label: '持ち家派の住居費',
+          data: homeCosts,
+          borderColor: '#f97316',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.3,
+          stepped: true,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(17,17,26,0.95)',
+          borderColor: '#2a2a40',
+          borderWidth: 1,
+          titleColor: '#94a3b8',
+          bodyColor: '#e2e8f0',
+          callbacks: {
+            title: (items) => `${items[0].label} 歳`,
+            label: (item) => ` ${item.dataset.label}：${fmtM(item.raw)}万円`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(42,42,64,0.4)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 10, family: 'DM Mono' },
+            callback: (v, i) => ages[i] % 5 === 0 ? ages[i] + '歳' : '',
+          }
+        },
+        y: {
+          grid: { color: 'rgba(42,42,64,0.4)' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 10, family: 'DM Mono' },
+            callback: (v) => v + '万',
+          }
+        }
+      }
+    }
+  });
+
+  // ====================================================
+  // 詳細テーブルの描画（5年ごと）
+  // ====================================================
+  const table = document.getElementById('detailTable');
+  let html = `
+    <thead>
+      <tr>
+        <th>年齢</th>
+        <th>賃貸 資産残高</th>
+        <th>賃貸 年間住居費</th>
+        <th>持ち家 資産残高</th>
+        <th>持ち家 年間住居費</th>
+        <th>差額 (賃貸−持ち家)</th>
+        <th>イベント</th>
+      </tr>
+    </thead>
+    <tbody>
+  `;
+
+  for (let i = 0; i < ages.length; i++) {
+    // 5年ごと + 最初 + 最後 + ショート年齢 + 完済年齢
+    const ag = ages[i];
+    const isSpecial = ag === currentAge
+      || ag === endAge
+      || ag % 5 === 0
+      || ag === rentShortAge
+      || ag === homeShortAge
+      || ag === payoffAgeLabel;
+
+    if (!isSpecial) continue;
+
+    const rA = rentAssets[i];
+    const hA = homeAssets[i];
+    const rc = rentCosts[i];
+    const hc = homeCosts[i];
+    const d  = rA - hA;
+    const ev = events[i] ? events[i].join(' ') : '';
+
+    const isShort = ag === rentShortAge || ag === homeShortAge;
+    const isPayoff = ag === payoffAgeLabel;
+
+    html += `
+      <tr class="${isShort ? 'highlight-row' : ''}">
+        <td>
+          ${ag}歳
+          ${isPayoff ? `<span class="badge badge-payoff">完済</span>` : ''}
+          ${ag === rentShortAge ? `<span class="badge badge-short">賃貸NG</span>` : ''}
+          ${ag === homeShortAge ? `<span class="badge badge-short">持家NG</span>` : ''}
+        </td>
+        <td class="${rA < 0 ? 'td-minus' : 'td-rent'}">${fmtMK(rA)}</td>
+        <td>${fmtM(rc)}万円</td>
+        <td class="${hA < 0 ? 'td-minus' : 'td-home'}">${fmtMK(hA)}</td>
+        <td>${fmtM(hc)}万円</td>
+        <td class="${d >= 0 ? 'td-plus' : 'td-minus'}">${d >= 0 ? '+' : ''}${fmtMK(d)}</td>
+        <td class="td-event">${ev}</td>
+      </tr>
+    `;
+  }
+
+  html += '</tbody>';
+  table.innerHTML = html;
+
+  // ====================================================
+  // 結果セクションを表示してスクロール
+  // ====================================================
+  const resultSection = document.getElementById('result-section');
+  resultSection.style.display = 'block';
+  resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // スクロール連動アニメーション
+  setTimeout(() => {
+    document.querySelectorAll('.scroll-reveal').forEach((el, i) => {
+      setTimeout(() => el.classList.add('visible'), i * 150);
+    });
+  }, 300);
+}
+
+// ====================================================
+// ユーティリティ関数
+// ====================================================
+// 万円単位の数値を「1,234万円」形式でフォーマット
+function fmtM(val) {
+  if (val == null || isNaN(val)) return '-';
+  return Math.round(val).toLocaleString('ja-JP');
+}
+
+// 億・万単位で自動切り替えするフォーマット
+function fmtMK(val) {
+  if (val == null || isNaN(val)) return '-';
+  const abs = Math.abs(val);
+  const sign = val < 0 ? '-' : '';
+  if (abs >= 10000) {
+    return `${sign}${(abs / 10000).toFixed(1)}億円`;
+  }
+  return `${sign}${Math.round(abs).toLocaleString('ja-JP')}万円`;
+}
+</script>
+</body>
+</html>
